@@ -110,6 +110,9 @@ def get_args():
         subparser.add_argument("--episodes-per-instance", default=1, type=int, 
             help="number of episodes to rollout the agent for per sim instance")
 
+
+        subparser.add_argument("--use-new-discriminator", action="store_true", help="Use New Discriminator")
+
         subparser.add_argument("--kld-coefficient", default=0.00, type=float, help="kld coefficient for particles")
         subparser.add_argument("--discrete-svpg", action="store_true", help="discrete SVPG")
         subparser.add_argument("--continuous-svpg", action="store_true", help="continuous SVPG")
@@ -147,6 +150,8 @@ def check_args(args):
     assert args.svpg_rollout_length < 25, "Rollout length likely too long - SVPG will likely need more frequent feedback"
     assert args.svpg_horizon > 10, "Horizon likely too short for consistency - might reset SVPG to random positions too frequently"
     assert args.episodes_per_instance > 0, "Must provide episodes_per_instance"
+
+    assert not(args.freeze_agent and args.use_new_discriminator), "Do not freeze agent AND use the new discriminator, which relies on the critic"
 
     if args.pretrain_discriminator:
         assert args.load_discriminator == True, "If pretraining, you should also load"

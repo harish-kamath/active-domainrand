@@ -52,7 +52,7 @@ if __name__ == '__main__':
             agent_policy.load_model()
 
     
-    simulator_agent = generate_simulator_agent(args)
+    simulator_agent = generate_simulator_agent(args, agent_policy)
 
     svpg_timesteps = 0
 

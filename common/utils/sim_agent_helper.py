@@ -1,6 +1,6 @@
 from common.agents.svpg_simulator_agent import SVPGSimulatorAgent
 
-def generate_simulator_agent(args):
+def generate_simulator_agent(args, agent_policy):
     return SVPGSimulatorAgent(
         reference_env_id=args.reference_env_id, 
         randomized_env_id=args.randomized_env_id,
@@ -22,4 +22,6 @@ def generate_simulator_agent(args):
         freeze_agent=args.freeze_agent, 
         seed=args.seed,
         particle_path=args.particle_path,
+        use_new_discriminator=args.use_new_discriminator,
+        agent_policy=agent_policy
     )

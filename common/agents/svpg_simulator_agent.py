@@ -45,6 +45,8 @@ class SVPGSimulatorAgent(object):
                  particle_path="",
                  discriminator_batchsz=320,
                  randomized_eval_episodes=3,
+                 use_new_discriminator=False,
+                 agent_policy=None
                  ):
 
         # TODO: Weird bug
@@ -105,6 +107,8 @@ class SVPGSimulatorAgent(object):
                                                             discriminator_batchsz=discriminator_batchsz,
                                                             reward_scale=reward_scale,
                                                             load_discriminator=load_discriminator,
+                                                            use_new_discriminator=use_new_discriminator,
+                                                            agent_policy=agent_policy
                                                             )
 
         if not self.freeze_agent:

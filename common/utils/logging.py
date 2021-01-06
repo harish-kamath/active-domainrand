@@ -221,7 +221,7 @@ class StatsLogger:
                 self.ref_final_dists_mean.append(info['final_dist_ref_mean'])
                 self.rand_final_dists_mean.append(info['final_dist_rand_mean'])
                 self.ref_final_dists_median.append(info['final_dist_ref_median'])
-                self.self.rand_final_dists_median.append(info['final_dist_rand_median'])
+                self.rand_final_dists_median.append(info['final_dist_rand_median'])
 
                 evaluation_key = 'final_dist_rand_median'
 

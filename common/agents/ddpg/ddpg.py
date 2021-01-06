@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from common.models.actor_critic import Actor, Critic
+from common.models.actor_critic import Actor, Critic, Dynamics
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -20,6 +20,9 @@ class DDPG(object):
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
+        self.dynamics = Dynamics(state_dim, action_dim).to(device)
+        self.dynamics_optimizer = torch.optim.Adam(self.dynamics.parameters())
+
         self.max_action = max_action
 
         self.agent_name = agent_name
@@ -27,6 +30,18 @@ class DDPG(object):
     def select_action(self, state):
         state = torch.FloatTensor(state).to(device)
         return self.actor(state).cpu().data.numpy()
+    
+    def select_value(self, state, action):
+        state = torch.FloatTensor(state).to(device)
+        action = torch.FloatTensor(action).to(device)
+        return self.critic(state,action).cpu().data.numpy()
+    
+    def select_next_state(self, state, action):
+        state = torch.FloatTensor(state).to(device)
+        action = torch.FloatTensor(action).to(device)
+        diff = self.dynamics(state, action).cpu().data.numpy()
+        state = state.cpu().data.numpy()
+        return state+diff
 
     def train(self, replay_buffer, iterations, batch_size=100, discount=0.99, tau=0.005):
         for it in range(iterations):
@@ -35,8 +50,16 @@ class DDPG(object):
             state = torch.FloatTensor(x).to(device)
             action = torch.FloatTensor(u).to(device)
             next_state = torch.FloatTensor(y).to(device)
+            diff_state = next_state - state
             done = torch.FloatTensor(1 - d).to(device)
             reward = torch.FloatTensor(r).to(device)
+
+            # Train Dynamics
+            pred_diff_state = self.dynamics(state, action)
+            dynamics_loss = F.mse_loss(pred_diff_state, diff_state)
+            self.dynamics_optimizer.zero_grad()
+            dynamics_loss.backward()
+            self.dynamics_optimizer.step()
 
             # Compute the target Q value
             target_Q = self.critic_target(next_state, self.actor_target(next_state))

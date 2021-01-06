@@ -56,6 +56,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             elif cmd == 'close':
                 remote.close()
                 break
+            elif cmd == 'get_default_val':
+                remote.send(env.unwrapped.dimensions[data].default_value)
             elif cmd == 'get_spaces':
                 remote.send((env.observation_space, env.action_space, env.unwrapped.randomization_space))
             elif cmd == 'get_dimension_name':
@@ -172,6 +174,10 @@ class RandomizedSubprocVecEnv(VecEnv):
         result = [remote.recv() for remote in self.remotes]
         logger.debug('[reset] => SENT')
         return np.stack(result)
+
+    def default_val(self,dimension):
+        self.remotes[0].send(('get_default_val',dimension))
+        return self.remotes[0].recv()
 
     def close(self):
         if self.closed:

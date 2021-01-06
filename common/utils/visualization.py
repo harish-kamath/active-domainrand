@@ -164,8 +164,7 @@ class Visualizer(object):
 
     def plot_value(self, simulator_agent, agent_policy, timesteps, plot_path, log_path):
         logger.debug('Generating ground truth...')
-
-        default_values = [['default'] * simulator_agent.nparams]
+        default_values = [[self.randomized_env.default_val(dimension) for dimension in range(0, simulator_agent.nparams)]]
 
         for randomized_dimension in range(simulator_agent.nparams):
             evaluation_array_mean = []
