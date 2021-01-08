@@ -2,9 +2,13 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import logging
+import numpy as np
 
 from common.models.actor_critic import Actor, Critic, Dynamics
+from .mbrl import ProbabilisticEnsemble, MBRLTrainer
 
+logger = logging.getLogger(__name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -20,8 +24,14 @@ class DDPG(object):
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
-        self.dynamics = Dynamics(state_dim, action_dim).to(device)
-        self.dynamics_optimizer = torch.optim.Adam(self.dynamics.parameters())
+        self.dynamics = ProbabilisticEnsemble(ensemble_size=5, 
+        obs_dim=state_dim, 
+        action_dim=action_dim,
+        hidden_sizes=[256,256])
+        self.dynamics_trainer = MBRLTrainer(ensemble=self.dynamics)
+
+        # self.dynamics = Dynamics(state_dim, action_dim).to(device)
+        # self.dynamics_optimizer = torch.optim.Adam(self.dynamics.parameters())
 
         self.max_action = max_action
 
@@ -36,30 +46,37 @@ class DDPG(object):
         action = torch.FloatTensor(action).to(device)
         return self.critic(state,action).cpu().data.numpy()
     
-    def select_next_state(self, state, action):
-        state = torch.FloatTensor(state).to(device)
-        action = torch.FloatTensor(action).to(device)
-        diff = self.dynamics(state, action).cpu().data.numpy()
-        state = state.cpu().data.numpy()
-        return state+diff
+    def select_next_state_dist(self, state, action):
+        dyn_inp = np.concatenate([state, action], axis=1)
+        dyn_inp = torch.FloatTensor(dyn_inp).to(device)
+        samples, mean, logstd = self.dynamics(dyn_inp)
+        samples = samples.cpu().data.numpy()
+        mean = mean.cpu().data.numpy()
+        std = torch.exp(logstd).cpu().data.numpy()
+        return samples, mean, std
 
     def train(self, replay_buffer, iterations, batch_size=100, discount=0.99, tau=0.005):
+        x,y,u,r,d = replay_buffer.sample(len(replay_buffer.storage))
+        full_data = np.concatenate([x,u,r,d,y],axis=1)
+        logger.info("Training Dynamics")
+        self.dynamics_trainer.train_from_buffer(full_data)
+        logger.info("Finished training dynamics!")
         for it in range(iterations):
             # Sample replay buffer 
             x, y, u, r, d = replay_buffer.sample(batch_size)
             state = torch.FloatTensor(x).to(device)
             action = torch.FloatTensor(u).to(device)
             next_state = torch.FloatTensor(y).to(device)
-            diff_state = next_state - state
+            # diff_state = next_state - state
             done = torch.FloatTensor(1 - d).to(device)
             reward = torch.FloatTensor(r).to(device)
 
             # Train Dynamics
-            pred_diff_state = self.dynamics(state, action)
-            dynamics_loss = F.mse_loss(pred_diff_state, diff_state)
-            self.dynamics_optimizer.zero_grad()
-            dynamics_loss.backward()
-            self.dynamics_optimizer.step()
+            # pred_diff_state = self.dynamics(state, action)
+            # dynamics_loss = F.mse_loss(pred_diff_state, diff_state)
+            # self.dynamics_optimizer.zero_grad()
+            # dynamics_loss.backward()
+            # self.dynamics_optimizer.step()
 
             # Compute the target Q value
             target_Q = self.critic_target(next_state, self.actor_target(next_state))

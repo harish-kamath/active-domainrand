@@ -52,7 +52,8 @@ def get_config(env_id):
 
 
 class Visualizer(object):
-    def __init__(self, randomized_env_id, seed, neval_eps=5):
+    def __init__(self, randomized_env_id, seed, wandb_writer, neval_eps=5):
+        self.wandb_writer = wandb_writer
         self.evaluation_scores = None
         self.randomized_env_id = randomized_env_id
         self.config = get_config(randomized_env_id)

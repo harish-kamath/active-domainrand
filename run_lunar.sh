@@ -1,4 +1,4 @@
-#!/bin/sh
+#! /bin/bash
 # To check results, run "tmux a -t ADR". Kill the session before you start a new one.
 
 tmux new-session -d -s ADR_lunar
@@ -7,7 +7,7 @@ SEEDS=(100 200 300 400 500)
 ENV_TYPE="lunar"
 REVAL_ENV_ID="LunarLanderRandomized-v0"
 
-for SEED in $SEEDS
+for SEED in "${SEEDS[@]}"
 do
     tmux new-window -d -n baseline_$SEED
     tmux new-window -d -n udr_$SEED

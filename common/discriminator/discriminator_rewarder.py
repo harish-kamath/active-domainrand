@@ -53,10 +53,21 @@ class DiscriminatorRewarder(object):
             action = trajectory[:,self.reference_env.observation_space.shape[0]:-self.reference_env.observation_space.shape[0]]
 
             v_n = self.agent_policy.select_value(next_state, action)
-            pred_ns = self.agent_policy.select_next_state(curr_state,action)
+            _, pred_ns, std_ns = self.agent_policy.select_next_state_dist(curr_state,action)
+            pred_ns = pred_ns[0,:,:self.reference_env.observation_space.shape[0]]
+            std_ns = std_ns[0,:,:self.reference_env.observation_space.shape[0]]
+            temp_values = []
+            for i in range(30):
+                eps = np.random.randn(*std_ns.shape)
+                sample = pred_ns + std_ns * eps
+                temp_v_n = self.agent_policy.select_value(sample,action)
+                temp_values.append(temp_v_n)
+            temp_values = np.array(temp_values)
+            temp_values = temp_values.squeeze().T
             ev_n = self.agent_policy.select_value(pred_ns,action)
-            ma_vals = (v_n - ev_n)
-            return np.std(ma_vals),np.std(ma_vals),0
+            ma_vals = (v_n - ev_n).squeeze()
+            rew = np.abs(ma_vals)/np.std(temp_values,axis=1)
+            return np.amax(rew),np.median(rew),0
 
         traj_tensor = self._trajectory2tensor(trajectory).float()
         with torch.no_grad():

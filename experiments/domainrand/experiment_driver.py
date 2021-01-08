@@ -15,6 +15,7 @@ from common.agents.ddpg_actor import DDPGActor
 from common.utils.visualization import Visualizer
 from common.utils.sim_agent_helper import generate_simulator_agent
 from common.utils.logging import setup_experiment_logs, reshow_hyperparameters, StatsLogger
+import wandb
 
 from experiments.domainrand.args import get_args, check_args
 
@@ -23,13 +24,14 @@ if __name__ == '__main__':
     args = get_args()
     paths = setup_experiment_logs(args)
     check_args(args)
+    wandb_writer = wandb.init(project="ADR", name=args.experiment_prefix, config=args, reinit=True)
     
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
     
     stats_logger = StatsLogger(args)
-    visualizer = Visualizer(randomized_env_id=args.randomized_eval_env_id, seed=args.seed)
+    visualizer = Visualizer(randomized_env_id=args.randomized_eval_env_id, seed=args.seed, wandb_writer = wandb_writer)
 
     reference_env = gym.make(args.reference_env_id)    
 
