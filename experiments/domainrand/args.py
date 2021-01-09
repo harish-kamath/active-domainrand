@@ -111,7 +111,8 @@ def get_args():
             help="number of episodes to rollout the agent for per sim instance")
 
 
-        subparser.add_argument("--use-new-discriminator", action="store_true", help="Use New Discriminator")
+        subparser.add_argument("--use-new-discriminator", type=str, default='default',
+            choices=['default','perfdiff', 'modeladv'])
 
         subparser.add_argument("--kld-coefficient", default=0.00, type=float, help="kld coefficient for particles")
         subparser.add_argument("--discrete-svpg", action="store_true", help="discrete SVPG")

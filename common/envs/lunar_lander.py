@@ -337,6 +337,8 @@ class LunarLanderRandomized(gym.Env, EzPickle):
             done = True
             reward = +100
         return np.array(state, dtype=np.float32), reward, done, {}
+        
+
 
     def render(self, mode='human'):
         from gym.envs.classic_control import rendering

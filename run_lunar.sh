@@ -3,7 +3,7 @@
 
 tmux new-session -d -s ADR_lunar
 
-SEEDS=(100 200 300 400 500)
+SEEDS=(100 200 300)
 ENV_TYPE="lunar"
 REVAL_ENV_ID="LunarLanderRandomized-v0"
 
@@ -13,11 +13,13 @@ do
     tmux new-window -d -n udr_$SEED
     tmux new-window -d -n adrold_$SEED
     tmux new-window -d -n adrnew_$SEED
+    tmux new-window -d -n adrpd_$SEED
 
     tmux send -t ADR_lunar:baseline_$SEED.0 'conda activate curiosity' Enter
     tmux send -t ADR_lunar:udr_$SEED.0 'conda activate curiosity' Enter
     tmux send -t ADR_lunar:adrold_$SEED.0 'conda activate curiosity' Enter
     tmux send -t ADR_lunar:adrnew_$SEED.0 'conda activate curiosity' Enter
+    tmux send -t ADR_lunar:adrpd_$SEED.0 'conda activate curiosity' Enter
 
     # SLURM
     # srun --gres=gpu:1 -p short
@@ -38,10 +40,18 @@ do
         --continuous-svpg --experiment-name=unfreeze-policy\
         --agent-name=adrold --experiment-prefix=adrold --seed=$SEED\
         --randomized-env-id=$REVAL_ENV_ID" Enter
+    
     # ADR New
     tmux send -t ADR_lunar:adrnew_$SEED.0 "srun --gres=gpu:1 -p short python -m experiments.domainrand.experiment_driver $ENV_TYPE\
         --continuous-svpg --experiment-name=unfreeze-policy\
         --agent-name=adrnew --experiment-prefix=adrnew --seed=$SEED\
         --randomized-env-id=$REVAL_ENV_ID\
-        --use-new-discriminator" Enter
+        --use-new-discriminator modeladv" Enter
+    
+    # ADR PD
+    tmux send -t ADR_lunar:adrpd_$SEED.0 "srun --gres=gpu:1 -p short python -m experiments.domainrand.experiment_driver $ENV_TYPE\
+        --continuous-svpg --experiment-name=unfreeze-policy\
+        --agent-name=adrpd --experiment-prefix=adrpd --seed=$SEED\
+        --randomized-env-id=$REVAL_ENV_ID\
+        --use-new-discriminator perfdiff" Enter
 done

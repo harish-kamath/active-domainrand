@@ -77,7 +77,8 @@ def evaluate_policy(nagents, env, agent_policy, replay_buffer, eval_episodes, ma
             [
                 np.array(states[i]),
                 np.array(actions[i]),
-                np.array(next_states[i])
+                np.array(next_states[i]),
+                np.expand_dims(np.array(rewards[i]),axis=1)
             ], axis=-1))
 
     return trajectories

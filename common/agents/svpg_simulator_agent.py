@@ -45,7 +45,7 @@ class SVPGSimulatorAgent(object):
                  particle_path="",
                  discriminator_batchsz=320,
                  randomized_eval_episodes=3,
-                 use_new_discriminator=False,
+                 use_new_discriminator='default',
                  agent_policy=None
                  ):
 
@@ -108,7 +108,8 @@ class SVPGSimulatorAgent(object):
                                                             reward_scale=reward_scale,
                                                             load_discriminator=load_discriminator,
                                                             use_new_discriminator=use_new_discriminator,
-                                                            agent_policy=agent_policy
+                                                            agent_policy=agent_policy,
+                                                            max_env_timesteps=max_env_timesteps
                                                             )
 
         if not self.freeze_agent:
@@ -203,17 +204,17 @@ class SVPGSimulatorAgent(object):
                 flattened_reference = np.concatenate(flattened_reference)
 
                 randomized_discrim_score_mean, randomized_discrim_score_median, randomized_discrim_score_sum = \
-                    self.discriminator_rewarder.get_score(flattened_randomized)
+                    self.discriminator_rewarder.get_score(flattened_randomized, ref=flattened_reference)
                 reference_discrim_score_mean, reference_discrim_score_median, reference_discrim_score_sum = \
                     self.discriminator_rewarder.get_score(flattened_reference)
 
                 # Train discriminator based on state action pairs for agent env. steps
                 # TODO: Train more?
-                self.discriminator_rewarder.train_discriminator(flattened_reference, flattened_randomized,
+                self.discriminator_rewarder.train_discriminator(flattened_reference[:,:-1], flattened_randomized[:,:-1],
                                                                 iterations=agent_timesteps_current_iteration)
 
                 randomized_discrim_score_mean, randomized_discrim_score_median, randomized_discrim_score_sum = \
-                    self.discriminator_rewarder.get_score(flattened_randomized)
+                    self.discriminator_rewarder.get_score(flattened_randomized, ref=flattened_reference)
                 reference_discrim_score_mean, reference_discrim_score_median, reference_discrim_score_sum = \
                     self.discriminator_rewarder.get_score(flattened_reference)
 

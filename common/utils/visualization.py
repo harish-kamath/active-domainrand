@@ -2,6 +2,7 @@ import os
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
+import wandb
 
 from common.utils.rollout_evaluation import evaluate_policy
 
@@ -153,6 +154,9 @@ class Visualizer(object):
             plt.plot(ground_truth_scaled, evaluation_array_mean, c="green")
             plt.savefig('{}.png'.format(os.path.join(plot_path, 'mean-discrimrew-{}-{}'.format(name, timesteps))))
             plt.close()
+            data = [[x,y] for (x,y) in zip(ground_truth_scaled,evaluation_array_mean)]
+            table = wandb.Table(data=data,columns=[f"Value of {name}","Reward"])
+            self.wandb_writer.log({f"Mean Discrimination Reward": wandb.plot.line(table,f"Value of {name}","Reward", title="Mean Discrim Reward"),"Timestep":timesteps})
 
             plt.plot(ground_truth_scaled, evaluation_array_median, c="green")
             plt.savefig('{}.png'.format(os.path.join(plot_path, 'med-discrimrew-{}-{}'.format(name, timesteps))))
@@ -184,7 +188,7 @@ class Visualizer(object):
                     _, value = simulator_agent.svpg.select_action(policy_idx, values)
                     empirical_values.append(value.item())
 
-                print(values, empirical_values)
+                #print(values, empirical_values)
                 evaluation_array_mean.append(np.mean(empirical_values))
                 evaluation_array_median.append(np.median(empirical_values))
 
@@ -215,7 +219,14 @@ class Visualizer(object):
                 sampled_regions=sampled_regions)
 
             scaled_data = self.randomized_env.rescale(dimension, sampled_regions)
+            if not hasattr(self, "prev_scaled_data"):
+                wandb_hist = np.histogram(scaled_data, bins=self.npoints)
+            else:
+                wandb_hist = np.histogram(scaled_data, bins=self.npoints) - np.histogram(self.prev_scaled_data, bins=self.npoints)
+            self.wandb_writer.log({f"Sampling Frequency for {dimension_name}": wandb.Histogram(np_histogram=wandb_hist), "Timestep":timesteps})
+            self.prev_scaled_data = scaled_data
             plt.hist(scaled_data, bins=self.npoints)
+
 
             if self.config.get('hist_xlims') is not None:
                 xlims = self.config.get('hist_xlims')
@@ -257,6 +268,11 @@ class Visualizer(object):
             plt.axhline(self.config['solved'], color='r', linestyle='--')
 
             plt.plot(ground_truth_scaled, mean, c="green")
+            data = [[x,y] for (x,y) in zip(ground_truth_scaled,mean)]
+            table = wandb.Table(data=data,columns=[f"Value of {dimension_name}",self.config['ylabel']])
+            self.wandb_writer.log({f"AvgAgentReward": wandb.plot.line(table,f"Value of {dimension_name}",self.config['ylabel'], title='Avg Agent Reward for {} (N={}) when varying {}'.format(agent_policy.agent_name, self.neval_eps, 
+                dimension_name)),"Timestep":timesteps})
+
             plt.fill_between(ground_truth_scaled, mean + sigma, mean - sigma, facecolor="green", alpha=0.15)
             # TODO: make the figure tight
             plt.savefig('{}.png'.format(os.path.join(plot_path, '{}-{}'.format(dimension, timesteps))))

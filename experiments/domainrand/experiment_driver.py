@@ -24,7 +24,7 @@ if __name__ == '__main__':
     args = get_args()
     paths = setup_experiment_logs(args)
     check_args(args)
-    wandb_writer = wandb.init(project="ADR", name=args.experiment_prefix, config=args, reinit=True)
+    wandb_writer = wandb.init(project="ADR", name=f"{args.experiment_prefix} {args.subparser_name} - {args.seed}", config=args, reinit=True, group=f"{args.experiment_prefix} {args.subparser_name}")
     
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
@@ -48,6 +48,7 @@ if __name__ == '__main__':
             state_dim=reference_env.observation_space.shape[0], 
             action_dim=reference_env.action_space.shape[0], 
             agent_name=args.agent_name,
+            wandb_writer=wandb_writer
         )
 
         if args.load_agent:

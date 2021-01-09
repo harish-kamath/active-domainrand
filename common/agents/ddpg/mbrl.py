@@ -296,6 +296,7 @@ class MBRLTrainer:
     def __init__(
             self,
             ensemble,
+            wandb_writer,
             num_elites=None,
             learning_rate=1e-3,
             batch_size=256,
@@ -305,6 +306,7 @@ class MBRLTrainer:
     ):
         super().__init__()
 
+        self.wandb_writer = wandb_writer
         self.ensemble = ensemble
         self.ensemble_size = ensemble.ensemble_size
         self.num_elites = min(num_elites, self.ensemble_size) if num_elites \
@@ -375,6 +377,7 @@ class MBRLTrainer:
                 loss = self.ensemble.get_loss(x_batch, y_batch)
                 self.optimizer.zero_grad()
                 loss.backward()
+                self.wandb_writer.log({"Dynamics Loss": loss.detach(), "Dynamics Step": num_steps})
                 self.optimizer.step()
             num_steps += num_batches
 
@@ -384,6 +387,7 @@ class MBRLTrainer:
                 holdout_losses, holdout_errors = self.ensemble.get_loss(
                     x_test, y_test, split_by_model=True, return_l2_error=True)
             holdout_loss = sum(sorted(holdout_losses)[:self.num_elites]) / self.num_elites
+            self.wandb_writer.log({"Dynamics Holdout Loss": np.mean(get_numpy(sum(holdout_losses))) / self.ensemble_size})
 
             if num_epochs == 0 or \
                (best_holdout_loss - holdout_loss) / abs(best_holdout_loss) > 0.01:

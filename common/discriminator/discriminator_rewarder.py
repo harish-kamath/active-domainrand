@@ -11,7 +11,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DiscriminatorRewarder(object):
     def __init__(self, reference_env, randomized_env_id, discriminator_batchsz, reward_scale,
-                 load_discriminator, discriminator_lr=3e-3, add_pz=True, use_new_discriminator=False, agent_policy=None):
+                 load_discriminator, discriminator_lr=3e-3, add_pz=True, use_new_discriminator='default', agent_policy=None, max_env_timesteps=0):
         self.discriminator = MLPDiscriminator(
             state_dim=reference_env.observation_space.shape[0],
             action_dim=reference_env.action_space.shape[0]).to(device)
@@ -24,6 +24,8 @@ class DiscriminatorRewarder(object):
         self.use_new_discriminator=use_new_discriminator
         self.agent_policy = agent_policy
         self.reference_env = reference_env
+        self.max_env_timesteps=max_env_timesteps
+        self.previous_ref_rew = 0
 
         if load_discriminator:
             self._load_discriminator(randomized_env_id)
@@ -41,12 +43,23 @@ class DiscriminatorRewarder(object):
 
         return self.reward_scale * reward
 
-    def get_score(self, trajectory):
+    def get_score(self, trajectory, ref=None):
         """Discriminator based reward calculation
         We want to use the negative of the adversarial calculation (Normally, -log(D)). We want to *reward*
         our simulator for making it easier to discriminate between the reference env + randomized onea
         """
-        if self.use_new_discriminator:
+        if self.use_new_discriminator is 'perfdiff':
+            rewards = trajectory[:,-1].squeeze()
+            rew = np.sum(rewards)
+            if ref is not None:
+                ref_rewards = ref[:,-1].squeeze()
+                ref_rew = np.sum(ref_rewards)
+                self.previous_ref_rew = ref_rew
+            pd = abs(rew - self.previous_ref_rew)
+            return pd,pd,0
+        trajectory = trajectory[:,:-1]
+
+        if self.use_new_discriminator is 'modeladv':
             ma_vals = []
             curr_state = trajectory[:,:self.reference_env.observation_space.shape[0]]
             next_state = trajectory[:,-self.reference_env.observation_space.shape[0]:]
