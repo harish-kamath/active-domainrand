@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import logging
 import numpy as np
+import wandb
 
 from common.models.actor_critic import Actor, Critic, Dynamics
 from .mbrl import ProbabilisticEnsemble, MBRLTrainer
@@ -13,7 +14,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class DDPG(object):
-    def __init__(self, state_dim, action_dim, wandb_writer, agent_name='baseline', max_action=1.):
+    def __init__(self, state_dim, action_dim, agent_name='baseline', max_action=1.):
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_target = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_target.load_state_dict(self.actor.state_dict())
@@ -28,7 +29,7 @@ class DDPG(object):
         obs_dim=state_dim, 
         action_dim=action_dim,
         hidden_sizes=[256,256])
-        self.dynamics_trainer = MBRLTrainer(ensemble=self.dynamics, wandb_writer=wandb_writer)
+        self.dynamics_trainer = MBRLTrainer(ensemble=self.dynamics)
 
         # self.dynamics = Dynamics(state_dim, action_dim).to(device)
         # self.dynamics_optimizer = torch.optim.Adam(self.dynamics.parameters())

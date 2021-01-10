@@ -24,14 +24,21 @@ if __name__ == '__main__':
     args = get_args()
     paths = setup_experiment_logs(args)
     check_args(args)
-    wandb_writer = wandb.init(project="ADR", name=f"{args.experiment_prefix} {args.subparser_name} - {args.seed}", config=args, reinit=True, group=f"{args.experiment_prefix} {args.subparser_name}")
-    
+
+    args.slurm_node=os.environ.get("SLURM_NODELIST")
+    args.slurm_partition=os.environ.get("SLURM_JOB_PARTITION")
+    args.slurm_task_pid=os.environ.get("SLURM_TASK_PID")
+    args.slurm_jobid=os.environ.get("SLURM_JOBID")
+
+    wandb_run = wandb.init(project="ADR", name=f"{args.experiment_prefix} {args.subparser_name} - {args.seed}", config=args, reinit=True, group=f"{args.experiment_prefix} {args.subparser_name}")
+    wandb_run.save()
+
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
     
     stats_logger = StatsLogger(args)
-    visualizer = Visualizer(randomized_env_id=args.randomized_eval_env_id, seed=args.seed, wandb_writer = wandb_writer)
+    visualizer = Visualizer(randomized_env_id=args.randomized_eval_env_id, seed=args.seed)
 
     reference_env = gym.make(args.reference_env_id)    
 
@@ -47,8 +54,7 @@ if __name__ == '__main__':
         agent_policy = DDPG(
             state_dim=reference_env.observation_space.shape[0], 
             action_dim=reference_env.action_space.shape[0], 
-            agent_name=args.agent_name,
-            wandb_writer=wandb_writer
+            agent_name=args.agent_name
         )
 
         if args.load_agent:
@@ -60,6 +66,7 @@ if __name__ == '__main__':
     svpg_timesteps = 0
 
     while simulator_agent.agent_timesteps < args.max_agent_timesteps:
+        wandb.log({"Agent Timestep":simulator_agent.agent_timesteps})
         if svpg_timesteps % args.plot_frequency == 0:
             generalization_metric = visualizer.generate_ground_truth(simulator_agent, agent_policy, svpg_timesteps, 
                 log_path=paths['groundtruth_logs'])

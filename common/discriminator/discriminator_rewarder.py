@@ -5,6 +5,10 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 from common.models.discriminator import MLPDiscriminator
+from common.utils.rollout_evaluation import evaluate_policy
+import logging
+
+logger = logging.getLogger(__name__)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -43,23 +47,21 @@ class DiscriminatorRewarder(object):
 
         return self.reward_scale * reward
 
-    def get_score(self, trajectory, ref=None):
+    def get_score(self, trajectory):
         """Discriminator based reward calculation
         We want to use the negative of the adversarial calculation (Normally, -log(D)). We want to *reward*
         our simulator for making it easier to discriminate between the reference env + randomized onea
         """
-        if self.use_new_discriminator is 'perfdiff':
+        if self.use_new_discriminator == 'perfdiff':
+            ref = self.ref_rewards
             rewards = trajectory[:,-1].squeeze()
             rew = np.sum(rewards)
-            if ref is not None:
-                ref_rewards = ref[:,-1].squeeze()
-                ref_rew = np.sum(ref_rewards)
-                self.previous_ref_rew = ref_rew
-            pd = abs(rew - self.previous_ref_rew)
+            pd = abs(rew - ref)
+            self.ref_rew = ref
             return pd,pd,0
         trajectory = trajectory[:,:-1]
 
-        if self.use_new_discriminator is 'modeladv':
+        if self.use_new_discriminator == 'modeladv':
             ma_vals = []
             curr_state = trajectory[:,:self.reference_env.observation_space.shape[0]]
             next_state = trajectory[:,-self.reference_env.observation_space.shape[0]:]
@@ -107,6 +109,23 @@ class DiscriminatorRewarder(object):
             discrim_loss.backward()
 
             self.discriminator_optimizer.step()
+    
+    def get_ref_reward(self):
+        ref_rewards = []
+        for i in range(5):
+            trajectory = evaluate_policy(nagents=10,
+                                env=self.reference_env,
+                                agent_policy=self.agent_policy,
+                                replay_buffer=None,
+                                eval_episodes=10,
+                                max_steps=self.max_env_timesteps,
+                                freeze_agent=True,
+                                add_noise=False,
+                                log_distances=False)
+            for roll in trajectory: ref_rewards.append(np.sum(roll[:,-1].squeeze()))
+        self.ref_rewards = np.mean(ref_rewards)
+            
+
 
     def _load_discriminator(self, name, path='saved-models/discriminator/discriminator_{}.pth'):
         self.discriminator.load_state_dict(torch.load(path.format(name), map_location=device))

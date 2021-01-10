@@ -95,7 +95,7 @@ def get_args():
             help="SVPG temperature")
         subparser.add_argument("--svpg-rollout-length", default=5, type=int, 
             help="length of one svpg particle rollout")
-        subparser.add_argument("--svpg-horizon", default=25, type=int, 
+        subparser.add_argument("--svpg-horizon", default=50, type=int, 
             help="how often to fully reset svpg particles")
 
         subparser.add_argument("--max-step-length", default=0.05, 

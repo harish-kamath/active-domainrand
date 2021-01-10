@@ -172,6 +172,7 @@ class SVPGSimulatorAgent(object):
         simulation_instances = np.transpose(simulation_instances, (1, 0, 2))
 
         # Create environment instances with vectorized env, and rollout agent_policy in both
+
         for t in range(self.svpg.svpg_rollout_length):
             agent_timesteps_current_iteration = 0
             logging.info('Iteration t: {}/{}'.format(t, self.svpg.svpg_rollout_length))  
@@ -180,6 +181,7 @@ class SVPGSimulatorAgent(object):
 
             self.randomized_env.randomize(randomized_values=simulation_instances[t])
             randomized_trajectory = self.rollout_agent(agent_policy, reference=False)
+            self.discriminator_rewarder.get_ref_reward()
 
             for i in range(self.nagents):
                 agent_timesteps_current_iteration += len(randomized_trajectory[i])
@@ -204,7 +206,7 @@ class SVPGSimulatorAgent(object):
                 flattened_reference = np.concatenate(flattened_reference)
 
                 randomized_discrim_score_mean, randomized_discrim_score_median, randomized_discrim_score_sum = \
-                    self.discriminator_rewarder.get_score(flattened_randomized, ref=flattened_reference)
+                    self.discriminator_rewarder.get_score(flattened_randomized)
                 reference_discrim_score_mean, reference_discrim_score_median, reference_discrim_score_sum = \
                     self.discriminator_rewarder.get_score(flattened_reference)
 
@@ -214,7 +216,7 @@ class SVPGSimulatorAgent(object):
                                                                 iterations=agent_timesteps_current_iteration)
 
                 randomized_discrim_score_mean, randomized_discrim_score_median, randomized_discrim_score_sum = \
-                    self.discriminator_rewarder.get_score(flattened_randomized, ref=flattened_reference)
+                    self.discriminator_rewarder.get_score(flattened_randomized)
                 reference_discrim_score_mean, reference_discrim_score_median, reference_discrim_score_sum = \
                     self.discriminator_rewarder.get_score(flattened_reference)
 

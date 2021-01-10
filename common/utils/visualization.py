@@ -53,8 +53,7 @@ def get_config(env_id):
 
 
 class Visualizer(object):
-    def __init__(self, randomized_env_id, seed, wandb_writer, neval_eps=5):
-        self.wandb_writer = wandb_writer
+    def __init__(self, randomized_env_id, seed, neval_eps=5):
         self.evaluation_scores = None
         self.randomized_env_id = randomized_env_id
         self.config = get_config(randomized_env_id)
@@ -111,13 +110,14 @@ class Visualizer(object):
 
 
     def plot_discriminator_reward(self, simulator_agent, agent_policy, timesteps, plot_path, log_path):
-        logger.debug('Generating ground truth...')
+        logger.debug('Plotting Discriminator Reward...')
 
         default_values = [['default'] * simulator_agent.nparams] * self.neval_eps
 
         for randomized_dimension in range(simulator_agent.nparams):
             evaluation_array_mean = []
             evaluation_array_median = []
+            simulator_agent.discriminator_rewarder.get_ref_reward()
             for i, x in enumerate(self.ground_truth_x):
                 if i % DISPLAY_FREQUENCY == 0:
                     logger.info("Dim: {}, Index: {}/{}".format(randomized_dimension, i, len(self.ground_truth_x)))
@@ -156,7 +156,7 @@ class Visualizer(object):
             plt.close()
             data = [[x,y] for (x,y) in zip(ground_truth_scaled,evaluation_array_mean)]
             table = wandb.Table(data=data,columns=[f"Value of {name}","Reward"])
-            self.wandb_writer.log({f"Mean Discrimination Reward": wandb.plot.line(table,f"Value of {name}","Reward", title="Mean Discrim Reward"),"Timestep":timesteps})
+            wandb.log({f"Mean Discrimination Reward": wandb.plot.line(table,f"Value of {name}","Reward", title="Mean Discrim Reward")})
 
             plt.plot(ground_truth_scaled, evaluation_array_median, c="green")
             plt.savefig('{}.png'.format(os.path.join(plot_path, 'med-discrimrew-{}-{}'.format(name, timesteps))))
@@ -168,7 +168,7 @@ class Visualizer(object):
         
 
     def plot_value(self, simulator_agent, agent_policy, timesteps, plot_path, log_path):
-        logger.debug('Generating ground truth...')
+        logger.debug('Plotting Value...')
         default_values = [[self.randomized_env.default_val(dimension) for dimension in range(0, simulator_agent.nparams)]]
 
         for randomized_dimension in range(simulator_agent.nparams):
@@ -210,6 +210,7 @@ class Visualizer(object):
 
 
     def plot_sampling_frequency(self, simulator_agent, agent_policy, timesteps, plot_path, log_path):
+        logger.debug('Plotting Sampling Frequency...')
         for dimension in range(simulator_agent.nparams):
             plt.figure(figsize=(16, 9))
             dimension_name = self.randomized_env.get_dimension_name(dimension)
@@ -219,12 +220,21 @@ class Visualizer(object):
                 sampled_regions=sampled_regions)
 
             scaled_data = self.randomized_env.rescale(dimension, sampled_regions)
-            if not hasattr(self, "prev_scaled_data"):
-                wandb_hist = np.histogram(scaled_data, bins=self.npoints)
-            else:
-                wandb_hist = np.histogram(scaled_data, bins=self.npoints) - np.histogram(self.prev_scaled_data, bins=self.npoints)
-            self.wandb_writer.log({f"Sampling Frequency for {dimension_name}": wandb.Histogram(np_histogram=wandb_hist), "Timestep":timesteps})
-            self.prev_scaled_data = scaled_data
+            if len(scaled_data > 0):
+                wandb_histograms = {}
+                wandb_histograms[f"Sampling Frequency for {dimension_name} - Cumulative"] = wandb.Histogram(np_histogram=np.histogram(scaled_data, bins=self.npoints))
+                wandb_histograms[f"Sampling Frequency for {dimension_name} - Cumulative Normalized"] = wandb.Histogram(np_histogram=np.histogram(scaled_data, bins=self.npoints, density=True))
+                if hasattr(self, "prev_scaled_data"):
+                    hist_curr,bin1 = np.histogram(scaled_data, bins=self.npoints)
+                    hist_past,bin2 = np.histogram(self.prev_scaled_data, bins=self.npoints)
+                    if not np.array_equal(bin1,bin2):
+                        logger.warning("PROBLEM: Bins don't match!")
+                        logger.warning(f"Bin 1: {bin1}")
+                        logger.warning(f"Bin 2: {bin2}")
+                    wandb_histograms[f"Sampling Frequency for {dimension_name}"] = wandb.Histogram(np_histogram=(hist_curr-hist_past,bin1))
+                self.prev_scaled_data = scaled_data
+                wandb_histograms["Total # Environments Sampled"] = len(scaled_data)
+                wandb.log(wandb_histograms)
             plt.hist(scaled_data, bins=self.npoints)
 
 
@@ -241,6 +251,7 @@ class Visualizer(object):
     def plot_reward(self, simulator_agent, agent_policy, timesteps, plot_path, log_path, means=None, sigmas=None):
         """Plots estimated ground truth reward of baseline policy with stddev estimate
         """
+        logger.debug("Plotting Reward...")
         if means is None and self.evaluation_scores is None:
             self.generate_ground_truth(simulator_agent, agent_policy, timesteps)
 
@@ -270,8 +281,8 @@ class Visualizer(object):
             plt.plot(ground_truth_scaled, mean, c="green")
             data = [[x,y] for (x,y) in zip(ground_truth_scaled,mean)]
             table = wandb.Table(data=data,columns=[f"Value of {dimension_name}",self.config['ylabel']])
-            self.wandb_writer.log({f"AvgAgentReward": wandb.plot.line(table,f"Value of {dimension_name}",self.config['ylabel'], title='Avg Agent Reward for {} (N={}) when varying {}'.format(agent_policy.agent_name, self.neval_eps, 
-                dimension_name)),"Timestep":timesteps})
+            wandb.log({f"AvgAgentReward": wandb.plot.line(table,f"Value of {dimension_name}",self.config['ylabel'], title='Avg Agent Reward for {} (N={}) when varying {}'.format(agent_policy.agent_name, self.neval_eps, 
+                dimension_name))})
 
             plt.fill_between(ground_truth_scaled, mean + sigma, mean - sigma, facecolor="green", alpha=0.15)
             # TODO: make the figure tight
